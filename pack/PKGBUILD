@@ -1,0 +1,33 @@
+# Maintainer: PinkD <443657547@qq.com>
+
+pkgname=udp2icmp
+_pkgbase=udp2icmp
+pkgver=1.0
+pkgrel=1
+pkgdesc='Wrap udp packet with icmp header using bpf'
+arch=('x86_64')
+url='https://github.com/PinkD/udp2icmp'
+license=('GPL-2.0-only')
+depends=('libbpf')
+makedepends=('bpf' 'clang')
+source=(
+  "$pkgname.$pkgver.tar.gz"::"https://github.com/PinkD/$pkgname/archive/$pkgver.tar.gz"
+)
+sha256sums=(
+  'SKIP'
+)
+
+backup=(etc/default/$pkgname)
+
+build() {
+  # build udp2icmp
+  cd "$srcdir/$_pkgbase-$pkgver"
+  make
+}
+
+package() {
+  cd "$srcdir/$_pkgbase-$pkgver"
+  install -Dm 755 "$pkgname" "$pkgdir/usr/bin/$pkgname"
+  install -Dm 600 "pack/$pkgname.conf" "$pkgdir/etc/default/$pkgname"
+  install -Dm 644 "pack/$pkgname.service" "$pkgdir/usr/lib/systemd/system/$pkgname.service"
+}

@@ -1,0 +1,16 @@
+[Unit]
+Description=Wrap udp packet with icmp header using bpf
+After=network.target
+
+[Service]
+# need root to load bpf program
+User=root
+Type=simple
+EnvironmentFile=/etc/default/udp2icmp
+ExecStart=/usr/bin/udp2icmp $ARGS
+Restart=always
+RestartSec=30
+StartLimitBurst=10
+
+[Install]
+WantedBy=multi-user.target

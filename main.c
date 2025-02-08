@@ -25,7 +25,7 @@ static void help(char *cmd) {
             "  -h, --help                   Print help message.\n"
             "  -t, --target <ip:port>       Target address. Set multiple targets with multiple "
             "--target options.\n"
-            "                               NOTE: This option indicates client mode.\n"
+            "                               NOTE: This option implies client mode.\n"
             "  -i, --interface <interface>  Interface to attach XDP program."
             "(Required)\n"
             // "  -m, --mode <mode>            Mode to attach XDP program.(native/skb, "
@@ -75,6 +75,8 @@ bool parse_args(int argc, char **argv, struct args *out) {
                     return false;
                 }
                 break;
+            default:
+                return false;
         }
     }
     return true;

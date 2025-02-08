@@ -9,6 +9,7 @@ vmlinux.h
 *.o
 # binary
 a.out
+./udp2icmp
 
 # vscode workspace
 .vscode/

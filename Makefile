@@ -2,10 +2,10 @@
 all: build
 
 .PHONY: build
-build: a.out
+build: udp2icmp
 
-a.out: ingress.skel.h egress.skel.h common.h flags.h main.h main.c
-	clang -lbpf main.c
+udp2icmp: ingress.skel.h egress.skel.h common.h flags.h main.h main.c
+	clang -lbpf main.c -o udp2icmp
 
 .PHONY: generate-skeleton
 generate-skeleton: ingress.skel.h egress.skel.h
