@@ -1,0 +1,17 @@
+# tcpdump output for debug
+*.pcap
+
+# generated hedaer file
+vmlinux.h
+*.skel.h
+
+# target object file
+*.o
+# binary
+a.out
+
+# vscode workspace
+.vscode/
+
+# old code backup
+backup/
