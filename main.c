@@ -9,6 +9,7 @@
 #include <sys/epoll.h>
 #include <sys/signalfd.h>
 #include <unistd.h>
+#include <linux/if_link.h>
 
 #include "ingress.skel.h"
 #include "egress.skel.h"
@@ -28,8 +29,8 @@ static void help(char *cmd) {
             "                               NOTE: This option implies client mode.\n"
             "  -i, --interface <interface>  Interface to attach XDP program."
             "(Required)\n"
-            // "  -m, --mode <mode>            Mode to attach XDP program.(native/skb, "
-            // "default: skb)\n"
+            "  -m, --mode <mode>            Mode to attach XDP program.(native/skb, "
+            "default: native)\n"
             "  -l, --log-level <level>      "
             "Log level.(trace/debug/info/warn/error/none, default: info)\n");
 }
@@ -89,8 +90,7 @@ int main(int argc, char **argv) {
     }
     struct args args = {
         .interface = NULL,
-        // TODO: mode is not used now
-        .mode = "skb",
+        .mode = "native",
         .log_level = LOG_LEVEL_INFO,
         .target_num = 0,
         .target = {0},
@@ -101,6 +101,16 @@ int main(int argc, char **argv) {
     }
     if (!args.interface) {
         fprintf(stderr, "--interface is required\n\n");
+        help(argv[0]);
+        return -1;
+    }
+    int mode;
+    if (strcmp(args.mode, "skb") == 0) {
+        mode = XDP_FLAGS_SKB_MODE;
+    } else if (strcmp(args.mode, "native") == 0) {
+        mode = XDP_FLAGS_DRV_MODE;
+    } else {
+        fprintf(stderr, "Invalid mode: %s\n", args.mode);
         help(argv[0]);
         return -1;
     }
@@ -181,19 +191,27 @@ int main(int argc, char **argv) {
         goto CLEAN_UP;
     }
 
-    ret = ingress_bpf__attach(ingress);
-    if (ret < 0) {
-        fprintf(stderr, "Failed to attach ingress BPF\n");
-        goto CLEAN_UP;
-    }
+    // ret = ingress_bpf__attach(ingress);
+    // if (ret < 0) {
+    //     fprintf(stderr, "Failed to attach ingress BPF\n");
+    //     goto CLEAN_UP;
+    // }
     ret = egress_bpf__attach(egress);
     if (ret < 0) {
         fprintf(stderr, "Failed to attach egress BPF\n");
         goto CLEAN_UP;
     }
     int ifindex = if_nametoindex(args.interface);
-    ingress->links.xdp_ingress = bpf_program__attach_xdp(ingress->progs.xdp_ingress, ifindex);
-    if (!ingress->links.xdp_ingress) {
+
+    // ingress->links.xdp_ingress = bpf_program__attach_xdp(ingress->progs.xdp_ingress, ifindex);
+    // if (!ingress->links.xdp_ingress) {
+    //     fprintf(stderr, "Failed to attach ingress BPF to interface\n");
+    //     goto CLEAN_UP;
+    // }
+
+    // use bpf_xdp_attach to support xdp mode
+    ret = bpf_xdp_attach(ifindex, bpf_program__fd(ingress->progs.xdp_ingress), mode, NULL);
+    if (ret < 0) {
         fprintf(stderr, "Failed to attach ingress BPF to interface\n");
         goto CLEAN_UP;
     }
@@ -283,6 +301,7 @@ int main(int argc, char **argv) {
     close(signal_fd);
     close(epoll_fd);
     bpf_object__unpin_maps(ingress->obj, BPF_PIN_PATH);
+    bpf_xdp_detach(ifindex, mode, NULL);
     ingress_bpf__detach(ingress);
     egress_bpf__detach(egress);
 CLEAN_UP:

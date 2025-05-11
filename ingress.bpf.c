@@ -36,7 +36,7 @@ static inline int remove_icmp_header(struct xdp_md *ctx) {
     return 0;
 }
 
-SEC("xdp")
+SEC("xdp.frags")
 int xdp_ingress(struct xdp_md *ctx) {
     void *data = (void *)(long)ctx->data;
     void *data_end = (void *)(long)ctx->data_end;
