@@ -69,7 +69,8 @@ int xdp_ingress(struct xdp_md *ctx) {
     struct udphdr *udp = data + offset;
     CHECK_DATA_END(udp);
     peer.port = udp->dest;
-    int udp_len = data_end - data - offset;
+    // we cannot use data_end to check udp length, because the packet might contain padding
+    int udp_len = htons(ip->tot_len) - sizeof(struct iphdr) - sizeof(struct icmphdr);
 
     log_trace(EVENT_TYPE_COMMON_ICMP_PACKET, DIRECTION_EGRESS, &peer);
     // bpf_printk("icmp packet from %s, udp.len: %d, udp_len: %d", format_addr(&peer), udp->len,
@@ -77,7 +78,8 @@ int xdp_ingress(struct xdp_md *ctx) {
     if (htons(udp->len) != udp_len) {
         // body of icmp is not udp packet, maybe normal ping packet
         log_debug(EVENT_TYPE_COMMON_ICMP_PING_PACKET, DIRECTION_INGRESS, &peer);
-        // bpf_printk("icmp packet from %s mismatch", format_addr(&peer));
+        bpf_printk("icmp packet from %s len mismatch, expected: %d, actual: %d", format_addr(&peer),
+                   udp_len, htons(udp->len));
         return XDP_PASS;
     }
 
