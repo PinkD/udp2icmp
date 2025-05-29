@@ -10,6 +10,7 @@ vmlinux.h
 # binary
 a.out
 udp2icmp
+udp2icmp-test
 
 # vscode workspace
 .vscode/

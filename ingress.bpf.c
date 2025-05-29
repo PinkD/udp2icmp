@@ -73,12 +73,12 @@ int xdp_ingress(struct xdp_md *ctx) {
     int udp_len = htons(ip->tot_len) - sizeof(struct iphdr) - sizeof(struct icmphdr);
 
     log_trace(EVENT_TYPE_COMMON_ICMP_PACKET, DIRECTION_EGRESS, &peer);
-    // bpf_printk("icmp packet from %s, udp.len: %d, udp_len: %d", format_addr(&peer), udp->len,
-    //    udp_len);
+    printk_log("icmp packet from %s, udp.len: %d, udp_len: %d", format_addr(&peer), udp->len,
+               udp_len);
     if (htons(udp->len) != udp_len) {
         // body of icmp is not udp packet, maybe normal ping packet
         log_debug(EVENT_TYPE_COMMON_ICMP_PING_PACKET, DIRECTION_INGRESS, &peer);
-        bpf_printk("icmp packet from %s len mismatch, expected: %d, actual: %d", format_addr(&peer),
+        printk_log("icmp packet from %s len mismatch, expected: %d, actual: %d", format_addr(&peer),
                    udp_len, htons(udp->len));
         return XDP_PASS;
     }
@@ -101,22 +101,22 @@ int xdp_ingress(struct xdp_md *ctx) {
             int ret = bpf_map_update_elem(&client_addr_map, &peer, &v0, BPF_NOEXIST);
             if (ret != 0) {
                 log_warn(EVENT_TYPE_COMMON_UPDATE_BPF_MAP_ERROR, DIRECTION_INGRESS, &peer);
-                // bpf_printk(
-                // "icmp packet from %s dropped because update map failed, "
-                // "err: %d",
-                // format_addr(&peer), ret);
+                printk_log(
+                    "icmp packet from %s dropped because update map failed, "
+                    "err: %d",
+                    format_addr(&peer), ret);
                 return XDP_DROP;
             }
         }
     }
     int ret = remove_icmp_header(ctx);
     if (ret != 0) {
-        // bpf_printk("icmp packet from %s dropped, err: %d", format_addr(&peer), ret);
+        printk_log("icmp packet from %s dropped, err: %d", format_addr(&peer), ret);
         log_warn(EVENT_TYPE_COMMON_ICMP_REMOVE_HEADER_ERROR, DIRECTION_INGRESS, &peer);
         // the packet might be invalid because it has been modified by us
         return XDP_DROP;
     }
-    // bpf_printk("icmp packet from %s passed", format_addr(&peer));
+    printk_log("icmp packet from %s passed", format_addr(&peer));
     log_trace(EVENT_TYPE_COMMON_ICMP_REMOVE_HEADER_OK, DIRECTION_INGRESS, &peer);
     // TODO: decrypt payload
 

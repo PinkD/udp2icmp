@@ -46,12 +46,23 @@ Description:
 Options:
   -h, --help                   Print help message.
   -t, --target <ip:port>       Target address. Set multiple targets with multiple --target options.
-                               NOTE: This option indicates client mode.
+                               NOTE: This option implies client mode.
   -i, --interface <interface>  Interface to attach XDP program.(Required)
+  -m, --mode <mode>            Mode to attach XDP program.(native/skb, default: native)
   -l, --log-level <level>      Log level.(trace/debug/info/warn/error/none, default: info)
 ```
 
 服务端只需要指定 `--interface` ，客户端还需要用 `--target` 指定服务端，可以多次传入指定多个服务端
+
+## 已知问题
+
+如果服务端收到的 icmp 包的 checksum 字段不正确，需要关闭客户端的 checksum offload 功能，命令如下：
+
+```bash
+ethtool -K eth0 tx-checksumming off
+```
+
+该问题目前没有找到根本原因和代码层面的解决方案。从现象来看，应该是 udp 的 checksum 的位置(offset)被记录用于 checksum offload ，而 `bpf_skb_adjust_room` 函数未能正确重置 skb 中的该字段，导致网卡仍然尝试用旧的 udp checksum 位置计算 checksum ，并修改了该字段，导致 icmp 包的数据部分发生变化，校验和也就发生变化了
 
 ## 特别感谢
 

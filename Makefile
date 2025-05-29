@@ -7,6 +7,10 @@ build: udp2icmp
 udp2icmp: ingress.skel.h egress.skel.h common.h flags.h main.h main.c
 	clang -lbpf main.c -o udp2icmp
 
+test: egress.skel.h common.h test.c
+	clang -lbpf test.c -o udp2icmp-test
+	sudo ./udp2icmp-test
+
 .PHONY: generate-skeleton
 generate-skeleton: ingress.skel.h egress.skel.h
 

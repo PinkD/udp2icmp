@@ -90,4 +90,10 @@ struct log_event {
 
 #define MAX_SERVER_NUM 64
 
+#ifndef BPF_PRINT_DEBUG
+#define printk_log(...) do {} while (0)
+#else
+#define printk_log bpf_printk
+#endif
+
 #endif  // __COMMON_H__

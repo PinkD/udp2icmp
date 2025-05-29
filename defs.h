@@ -42,7 +42,7 @@
 // defined in linux/icmp.h
 #define ICMP_ECHO 8
 #define ICMP_ECHOREPLY 0
-#endif  // _LINUX_ICMP_H
+#endif
 
 // TODO: support jumbo frame
 #define MAX_MTU 1500
