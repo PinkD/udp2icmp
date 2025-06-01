@@ -17,3 +17,8 @@ udp2icmp-test
 
 # old code backup
 backup/
+
+# pack files
+pack/src/
+pack/*.tar.gz
+pack/*.tar.zst

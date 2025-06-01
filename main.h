@@ -166,6 +166,9 @@ int handle_event(void *ctx, void *data, size_t size) {
         case EVENT_TYPE_COMMON_UPDATE_BPF_MAP_ERROR:
             printf("%s: %s: addr(%s) update bpf map error\n", lv, direction, addr);
             break;
+        case EVENT_TYPE_COMMON_CHECKSUM_ERROR:
+            printf("%s: %s: addr(%s) calc checksum error\n", lv, direction, addr);
+            break;
         default:
             printf("Unknown event type: %d, direction: %s, log_level: %s, addr: %s\n", e->type,
                    direction, lv, addr);

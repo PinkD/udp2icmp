@@ -4,7 +4,11 @@
 
 static inline int append_icmp_header(struct __sk_buff *ctx, u16 dst, u16 seq) {
     int ret;
-    // extend packet for icmp header
+    // --- step 1: extend packet for icmp header
+    // from
+    //  |ip header|udp header|payload|
+    // to
+    //  |ip header|icmp header|udp header|payload|
     ret = bpf_skb_adjust_room(ctx, sizeof(struct icmphdr), BPF_ADJ_ROOM_NET,
                               // BPF_F_ADJ_ROOM_NO_CSUM_RESET);
                               0);
@@ -18,6 +22,7 @@ static inline int append_icmp_header(struct __sk_buff *ctx, u16 dst, u16 seq) {
 
     struct iphdr *ip = (void *)(data + sizeof(struct ethhdr));
     CHECK_DATA_END(ip);
+    // --- step 2: modify ip header
     // modify protocol from udp to icmp
     ip->protocol = IPPROTO_ICMP;
     // add icmp header len
@@ -28,7 +33,7 @@ static inline int append_icmp_header(struct __sk_buff *ctx, u16 dst, u16 seq) {
     ip->check = 0;
     ip->check = hdr_csum(ip, sizeof(struct iphdr), 0);
 
-    // construct icmp header
+    // --- step 3: construct icmp header
     struct icmphdr *icmp = (void *)(data + sizeof(struct ethhdr) + sizeof(struct iphdr));
     CHECK_DATA_END(icmp);
     if (is_server_mode) {
@@ -42,23 +47,27 @@ static inline int append_icmp_header(struct __sk_buff *ctx, u16 dst, u16 seq) {
     }
     icmp->un.echo.id = dst;
     icmp->un.echo.sequence = seq;
-    // set checksum to 0 for calculation
-    // NOTE: the calculation is done outside because `buf` does not contains
-    //       payload
+    // set checksum to 0 for calculation below
     icmp->checksum = 0;
 
     // TODO: encrypt payload
     //   UDP = (payload XOR (key XOR SEQ))
 
+    // --- step 4: reset udp checksum and calculate icmp checksum
+    // NOTE: because the receiver may be behind a NAT, so the daddr may not be
+    //       the same as the original daddr, we cannot use it to calculate udp checksum.
+    //       so we use icmp checksum to ensure the packet is valid.
     struct udphdr *udp =
         (void *)(data + sizeof(struct ethhdr) + sizeof(struct iphdr) + sizeof(struct icmphdr));
     CHECK_DATA_END(udp);
-    u32 old_proto = IPPROTO_UDP;
-    u32 new_proto = IPPROTO_ICMP;
-    udp->check = csum_fold(
-        bpf_csum_diff(&old_proto, sizeof(old_proto), &new_proto, sizeof(new_proto), udp->check));
+    // reset udp checksum
+    // NOTE: the udp checksum may be calculated by udp offloading, 
+    //       so the sender may need to disable it by running
+    //       `ethtool -K eth0 tx-checksumming off`
+    udp->check = 0;
 
-    u32 checksum = bpf_csum_diff(0, 0, (void *)icmp, sizeof(struct icmphdr), 0);
+    // do not use hdr_csum because we will fold checksum later
+    u32 icmp_checksum = bpf_csum_diff(0, 0, (void *)icmp, sizeof(struct icmphdr), 0);
     u16 *payload = (void *)icmp + sizeof(struct icmphdr);
     CHECK_DATA_END(payload);
     // checksum is calculated in u16
@@ -66,14 +75,15 @@ static inline int append_icmp_header(struct __sk_buff *ctx, u16 dst, u16 seq) {
         if ((void *)(payload + 1) > data_end) {
             break;
         }
-        checksum += *payload;
+        icmp_checksum += *payload;
         payload++;
     }
     // calculate last byte if exist
     if ((void *)payload + 1 <= data_end) {
-        checksum += *(u8 *)payload;
+        u8 last_byte = *(u8 *)payload;
+        icmp_checksum += last_byte;
     }
-    icmp->checksum = csum_fold(checksum);
+    icmp->checksum = csum_fold(icmp_checksum);
     return 0;
 }
 

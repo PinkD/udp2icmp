@@ -70,6 +70,7 @@ enum event_type {
     EVENT_TYPE_COMMON_ICMP_REMOVE_HEADER_OK = 0x15,
     // common
     EVENT_TYPE_COMMON_UPDATE_BPF_MAP_ERROR = 0x20,
+    EVENT_TYPE_COMMON_CHECKSUM_ERROR = 0x21,
 
 };
 
@@ -89,6 +90,9 @@ struct log_event {
 #define atomic_add __sync_fetch_and_add
 
 #define MAX_SERVER_NUM 64
+
+// uncomment it to print debug info with bpf_printk
+// #define BPF_PRINT_DEBUG
 
 #ifndef BPF_PRINT_DEBUG
 #define printk_log(...) do {} while (0)

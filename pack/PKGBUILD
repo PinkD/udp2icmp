@@ -2,7 +2,7 @@
 
 pkgname=udp2icmp
 _pkgbase=udp2icmp
-pkgver=1.0
+pkgver=1.2
 pkgrel=1
 pkgdesc='Wrap udp packet with icmp header using bpf'
 arch=('x86_64')

@@ -2,10 +2,64 @@
 #include "flags.h"
 #include "common.h"
 
+static inline int calc_udp_checksum(struct xdp_md *ctx) {
+    void *data = (void *)(long)ctx->data;
+    void *data_end = (void *)(long)ctx->data_end;
+
+    struct iphdr *ip = data + sizeof(struct ethhdr);
+    CHECK_DATA_END(ip);
+    struct udphdr *udp = data + sizeof(struct ethhdr) + sizeof(struct iphdr);
+    CHECK_DATA_END(udp);
+    u32 checksum = 0;
+    // udp pesudo header
+    // 0        8        16       24       32
+    // +--------+--------+--------+--------+
+    // |          source address           |
+    // +--------+--------+--------+--------+
+    // |        destination address        |
+    // +--------+--------+--------+--------+
+    // |  zero  |protocol|   UDP length    |
+    // +--------+--------+--------+--------+
+    // 1. ip.saddr
+    checksum += (ip->saddr >> 16) & 0xFFFF;
+    checksum += (ip->saddr) & 0xFFFF;
+    // 2. ip.daddr
+    checksum += (ip->daddr >> 16) & 0xFFFF;
+    checksum += (ip->daddr) & 0xFFFF;
+    // 3. protocol
+    checksum += htons(IPPROTO_UDP);
+    // 4. udp length
+    checksum += udp->len;
+    
+    u16 *payload = (void *)udp;
+    CHECK_DATA_END(payload);
+    // checksum is calculated in u16
+    for (size_t i = 0; i < MAX_MTU; i += 2) {
+        if ((void *)(payload + 1) > data_end) {
+            break;
+        }
+        checksum += *payload;
+        payload++;
+    }
+    // calculate last byte if exist
+    if ((void *)payload + 1 <= data_end) {
+        u8 last_byte = *(u8 *)payload;
+        checksum += last_byte;
+    }
+    udp->check = csum_fold(checksum);
+    return 0;
+}
+
 static inline int remove_icmp_header(struct xdp_md *ctx) {
     const int offset = sizeof(struct ethhdr) + sizeof(struct iphdr);
     u8 buf[offset];
     int ret;
+
+    // from
+    //  |ip header|icmp header|udp header|payload|
+    // to
+    //  |ip header|udp header|payload|
+
     // backup eth+ip header
     ret = bpf_xdp_load_bytes(ctx, 0, buf, offset);
     if (ret != 0) {
@@ -120,6 +174,12 @@ int xdp_ingress(struct xdp_md *ctx) {
     log_trace(EVENT_TYPE_COMMON_ICMP_REMOVE_HEADER_OK, DIRECTION_INGRESS, &peer);
     // TODO: decrypt payload
 
+    ret = calc_udp_checksum(ctx);
+    if (ret != 0) {
+        printk_log("icmp packet from %s dropped, calc udp checksum error", format_addr(&peer));
+        log_debug(EVENT_TYPE_COMMON_CHECKSUM_ERROR, DIRECTION_INGRESS, &peer);
+        return XDP_DROP;
+    }
     return XDP_PASS;
 }
 
