@@ -30,7 +30,9 @@ static inline int calc_udp_checksum(struct xdp_md *ctx) {
     checksum += htons(IPPROTO_UDP);
     // 4. udp length
     checksum += udp->len;
-    
+
+    // reset udp checksum for calculation
+    udp->check = 0;
     u16 *payload = (void *)udp;
     CHECK_DATA_END(payload);
     // checksum is calculated in u16
